@@ -9,8 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,19 +44,24 @@ public class YouTubeService {
             ObjectMapper mapper =
                     new ObjectMapper();
 
-            List<String> channelIds =
-                    new ArrayList<>();
+            // UNIQUE CHANNEL IDS
+
+            Set<String> channelIds =
+                    new HashSet<>();
+
+            // UNIQUE EMAILS
+
+            Set<String> processedEmails =
+                    new HashSet<>();
 
             String nextPageToken =
                     pageToken == null
                             ? ""
                             : pageToken;
 
-            // ============================================
-            // FETCH CHANNEL IDS
-            // ============================================
+            // KEEP FETCHING UNTIL LIMIT REACHED
 
-            while (channelIds.size() < limit) {
+            while (results.size() < limit) {
 
                 String searchUrl =
                         "https://www.googleapis.com/youtube/v3/search"
@@ -81,6 +85,8 @@ public class YouTubeService {
                 JsonNode items =
                         root.get("items");
 
+                // STORE UNIQUE CHANNEL IDS
+
                 for (JsonNode item : items) {
 
                     String channelId =
@@ -89,13 +95,9 @@ public class YouTubeService {
                                     .asText();
 
                     channelIds.add(channelId);
-
-                    if (channelIds.size() >= limit) {
-                        break;
-                    }
                 }
 
-                // SAVE NEXT PAGE TOKEN
+                // NEXT PAGE TOKEN
 
                 if (root.has("nextPageToken")) {
 
@@ -109,113 +111,131 @@ public class YouTubeService {
 
                     break;
                 }
-            }
 
-            // ============================================
-            // FETCH CHANNEL DETAILS
-            // ============================================
+                // CONVERT SET TO LIST
 
-            for (int i = 0; i < channelIds.size(); i += 50) {
+                List<String> uniqueChannelIds =
+                        new ArrayList<>(channelIds);
 
-                List<String> batch =
-                        channelIds.subList(
-                                i,
-                                Math.min(
-                                        i + 50,
-                                        channelIds.size()
+                // FETCH CHANNEL DETAILS IN BATCHES
+
+                for (int i = 0;
+                     i < uniqueChannelIds.size();
+                     i += 50) {
+
+                    List<String> batch =
+                            uniqueChannelIds.subList(
+                                    i,
+                                    Math.min(
+                                            i + 50,
+                                            uniqueChannelIds.size()
+                                    )
+                            );
+
+                    String ids =
+                            String.join(",", batch);
+
+                    String detailsUrl =
+                            "https://www.googleapis.com/youtube/v3/channels"
+                                    + "?part=snippet,statistics"
+                                    + "&fields=items(id,snippet(title,description),statistics(subscriberCount))"
+                                    + "&id=" + ids
+                                    + "&key=" + apiKey;
+
+                    String detailsResponse =
+                            webClient.get()
+                                    .uri(detailsUrl)
+                                    .retrieve()
+                                    .bodyToMono(String.class)
+                                    .block();
+
+                    JsonNode detailsRoot =
+                            mapper.readTree(detailsResponse);
+
+                    JsonNode channels =
+                            detailsRoot.get("items");
+
+                    for (JsonNode channel : channels) {
+
+                        String channelName =
+                                channel.get("snippet")
+                                        .get("title")
+                                        .asText();
+
+                        String description =
+                                channel.get("snippet")
+                                        .get("description")
+                                        .asText();
+
+                        long subscribers =
+                                channel.get("statistics")
+                                        .get("subscriberCount")
+                                        .asLong();
+
+                        // MIN FILTER
+
+                        if (minSubscribers != null
+                                && subscribers < minSubscribers) {
+
+                            continue;
+                        }
+
+                        // MAX FILTER
+
+                        if (maxSubscribers != null
+                                && subscribers > maxSubscribers) {
+
+                            continue;
+                        }
+
+                        // EMAIL EXTRACTION
+
+                        String email =
+                                extractEmail(description);
+
+                        // ONLY CHANNELS WITH EMAIL
+
+                        if (email == null
+                                || email.isBlank()) {
+
+                            continue;
+                        }
+
+                        // REMOVE DUPLICATE EMAILS
+
+                        if (processedEmails.contains(email)) {
+
+                            continue;
+                        }
+
+                        processedEmails.add(email);
+
+                        // ADD RESULT
+
+                        results.add(
+
+                                new ChannelResponse(
+
+                                        channelName,
+
+                                        subscribers,
+
+                                        email
                                 )
                         );
 
-                String ids =
-                        String.join(",", batch);
+                        // STOP WHEN LIMIT REACHED
 
-                String detailsUrl =
-                        "https://www.googleapis.com/youtube/v3/channels"
-                                + "?part=snippet,statistics"
-                                + "&fields=items(id,snippet(title,description),statistics(subscriberCount))"
-                                + "&id=" + ids
-                                + "&key=" + apiKey;
+                        if (results.size() >= limit) {
 
-                String detailsResponse =
-                        webClient.get()
-                                .uri(detailsUrl)
-                                .retrieve()
-                                .bodyToMono(String.class)
-                                .block();
-
-                JsonNode detailsRoot =
-                        mapper.readTree(detailsResponse);
-
-                JsonNode channels =
-                        detailsRoot.get("items");
-
-                for (JsonNode channel : channels) {
-
-                    String channelName =
-                            channel.get("snippet")
-                                    .get("title")
-                                    .asText();
-
-                    String description =
-                            channel.get("snippet")
-                                    .get("description")
-                                    .asText();
-
-                    long subscribers =
-                            channel.get("statistics")
-                                    .get("subscriberCount")
-                                    .asLong();
-
-                    // ====================================
-                    // MIN SUBSCRIBER FILTER
-                    // ====================================
-
-                    if (minSubscribers != null
-                            && subscribers < minSubscribers) {
-
-                        continue;
+                            break;
+                        }
                     }
 
-                    // ====================================
-                    // MAX SUBSCRIBER FILTER
-                    // ====================================
+                    if (results.size() >= limit) {
 
-                    if (maxSubscribers != null
-                            && subscribers > maxSubscribers) {
-
-                        continue;
+                        break;
                     }
-
-                    // ====================================
-                    // EMAIL EXTRACTION
-                    // ====================================
-
-                    String email =
-                            extractEmail(description);
-
-                    // ONLY CHANNELS WITH EMAIL
-
-                    if (email == null
-                            || email.isBlank()) {
-
-                        continue;
-                    }
-
-                    // ====================================
-                    // ADD RESULT
-                    // ====================================
-
-                    results.add(
-
-                            new ChannelResponse(
-
-                                    channelName,
-
-                                    subscribers,
-
-                                    email
-                            )
-                    );
                 }
             }
 
@@ -235,9 +255,7 @@ public class YouTubeService {
         );
     }
 
-    // ============================================
     // EMAIL EXTRACTOR
-    // ============================================
 
     private String extractEmail(String text) {
 

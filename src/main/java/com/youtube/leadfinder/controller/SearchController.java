@@ -31,6 +31,12 @@ public class SearchController {
             String pageToken
     ) {
 
+        // LIMIT PROTECTION
+//
+//        if (limit > 100) {
+//            limit = 100;
+//        }
+
         return youTubeService.searchChannels(
 
                 keyword,
