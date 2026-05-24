@@ -24,18 +24,9 @@ public class SearchController {
             @RequestParam(required = false)
             Long maxSubscribers,
 
-            @RequestParam(defaultValue = "100")
-            int limit,
-
             @RequestParam(required = false)
             String pageToken
     ) {
-
-        // LIMIT PROTECTION
-//
-//        if (limit > 100) {
-//            limit = 100;
-//        }
 
         return youTubeService.searchChannels(
 
@@ -44,8 +35,6 @@ public class SearchController {
                 minSubscribers,
 
                 maxSubscribers,
-
-                limit,
 
                 pageToken
         );

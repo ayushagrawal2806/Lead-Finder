@@ -31,8 +31,6 @@ public class YouTubeService {
 
             Long maxSubscribers,
 
-            int limit,
-
             String pageToken
     ) {
 
@@ -44,39 +42,29 @@ public class YouTubeService {
             ObjectMapper mapper =
                     new ObjectMapper();
 
-            // ============================================
             // UNIQUE EMAILS
-            // ============================================
 
             Set<String> processedEmails =
                     new HashSet<>();
 
-            // ============================================
             // UNIQUE CHANNELS
-            // ============================================
 
             Set<String> processedChannels =
                     new HashSet<>();
 
-            // ============================================
             // PAGE TOKEN
-            // ============================================
 
             String nextPageToken =
                     pageToken == null
                             ? ""
                             : pageToken;
 
-            // ============================================
-            // CURRENT PAGE IDS ONLY
-            // ============================================
+            // CURRENT PAGE IDS
 
             Set<String> currentPageIds =
                     new HashSet<>();
 
-            // ============================================
             // SEARCH API
-            // ============================================
 
             String searchUrl =
                     "https://www.googleapis.com/youtube/v3/search"
@@ -100,9 +88,7 @@ public class YouTubeService {
             JsonNode items =
                     root.get("items");
 
-            // ============================================
             // STORE IDS
-            // ============================================
 
             for (JsonNode item : items) {
 
@@ -114,9 +100,7 @@ public class YouTubeService {
                 currentPageIds.add(channelId);
             }
 
-            // ============================================
             // SAVE NEXT PAGE TOKEN
-            // ============================================
 
             if (root.has("nextPageToken")) {
 
@@ -129,16 +113,12 @@ public class YouTubeService {
                 nextPageToken = null;
             }
 
-            // ============================================
             // IDS LIST
-            // ============================================
 
             List<String> uniqueChannelIds =
                     new ArrayList<>(currentPageIds);
 
-            // ============================================
-            // FETCH DETAILS IN BATCHES
-            // ============================================
+            // FETCH DETAILS
 
             for (int i = 0;
                  i < uniqueChannelIds.size();
@@ -193,9 +173,7 @@ public class YouTubeService {
                                     .get("subscriberCount")
                                     .asLong();
 
-                    // ====================================
                     // MIN FILTER
-                    // ====================================
 
                     if (minSubscribers != null
                             && subscribers < minSubscribers) {
@@ -203,9 +181,7 @@ public class YouTubeService {
                         continue;
                     }
 
-                    // ====================================
                     // MAX FILTER
-                    // ====================================
 
                     if (maxSubscribers != null
                             && subscribers > maxSubscribers) {
@@ -213,16 +189,12 @@ public class YouTubeService {
                         continue;
                     }
 
-                    // ====================================
                     // EMAIL EXTRACTION
-                    // ====================================
 
                     String email =
                             extractEmail(description);
 
-                    // ====================================
-                    // ONLY CHANNELS WITH EMAIL
-                    // ====================================
+                    // ONLY EMAIL CHANNELS
 
                     if (email == null
                             || email.isBlank()) {
@@ -230,9 +202,7 @@ public class YouTubeService {
                         continue;
                     }
 
-                    // ====================================
                     // REMOVE DUPLICATE EMAILS
-                    // ====================================
 
                     if (processedEmails.contains(email)) {
 
@@ -241,9 +211,7 @@ public class YouTubeService {
 
                     processedEmails.add(email);
 
-                    // ====================================
                     // REMOVE DUPLICATE CHANNELS
-                    // ====================================
 
                     if (processedChannels.contains(channelName)) {
 
@@ -252,9 +220,7 @@ public class YouTubeService {
 
                     processedChannels.add(channelName);
 
-                    // ====================================
                     // ADD RESULT
-                    // ====================================
 
                     results.add(
 
@@ -267,20 +233,6 @@ public class YouTubeService {
                                     email
                             )
                     );
-
-                    // ====================================
-                    // LIMIT CHECK
-                    // ====================================
-
-                    if (results.size() >= limit) {
-
-                        break;
-                    }
-                }
-
-                if (results.size() >= limit) {
-
-                    break;
                 }
             }
 
@@ -300,9 +252,7 @@ public class YouTubeService {
         );
     }
 
-    // ============================================
     // EMAIL EXTRACTOR
-    // ============================================
 
     private String extractEmail(String text) {
 
