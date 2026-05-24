@@ -3,6 +3,7 @@ package com.youtube.leadfinder.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.youtube.leadfinder.dto.ChannelResponse;
+import com.youtube.leadfinder.dto.SearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,7 @@ public class YouTubeService {
     private final WebClient webClient =
             WebClient.create();
 
-    public List<ChannelResponse> searchChannels(
+    public SearchResponse searchChannels(
 
             String keyword,
 
@@ -31,7 +32,9 @@ public class YouTubeService {
 
             Long maxSubscribers,
 
-            int limit
+            int limit,
+
+            String pageToken
     ) {
 
         List<ChannelResponse> results =
@@ -45,7 +48,10 @@ public class YouTubeService {
             List<String> channelIds =
                     new ArrayList<>();
 
-            String nextPageToken = "";
+            String nextPageToken =
+                    pageToken == null
+                            ? ""
+                            : pageToken;
 
             // ============================================
             // FETCH CHANNEL IDS
@@ -89,6 +95,8 @@ public class YouTubeService {
                     }
                 }
 
+                // SAVE NEXT PAGE TOKEN
+
                 if (root.has("nextPageToken")) {
 
                     nextPageToken =
@@ -97,12 +105,14 @@ public class YouTubeService {
 
                 } else {
 
+                    nextPageToken = null;
+
                     break;
                 }
             }
 
             // ============================================
-            // BATCH CHANNEL DETAILS
+            // FETCH CHANNEL DETAILS
             // ============================================
 
             for (int i = 0; i < channelIds.size(); i += 50) {
@@ -209,12 +219,20 @@ public class YouTubeService {
                 }
             }
 
+            return new SearchResponse(
+                    results,
+                    nextPageToken
+            );
+
         } catch (Exception e) {
 
             e.printStackTrace();
         }
 
-        return results;
+        return new SearchResponse(
+                new ArrayList<>(),
+                null
+        );
     }
 
     // ============================================

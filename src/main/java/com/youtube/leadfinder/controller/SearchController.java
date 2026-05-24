@@ -1,13 +1,11 @@
 package com.youtube.leadfinder.controller;
 
-import com.youtube.leadfinder.dto.ChannelResponse;
+import com.youtube.leadfinder.dto.SearchResponse;
 import com.youtube.leadfinder.service.YouTubeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -16,7 +14,7 @@ public class SearchController {
     private final YouTubeService youTubeService;
 
     @GetMapping("/search")
-    public List<ChannelResponse> searchChannels(
+    public SearchResponse searchChannels(
 
             @RequestParam String keyword,
 
@@ -27,7 +25,10 @@ public class SearchController {
             Long maxSubscribers,
 
             @RequestParam(defaultValue = "100")
-            int limit
+            int limit,
+
+            @RequestParam(required = false)
+            String pageToken
     ) {
 
         return youTubeService.searchChannels(
@@ -38,7 +39,9 @@ public class SearchController {
 
                 maxSubscribers,
 
-                limit
+                limit,
+
+                pageToken
         );
     }
 }
