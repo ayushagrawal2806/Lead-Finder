@@ -71,6 +71,7 @@ public class YouTubeService {
                             + "?part=snippet"
                             + "&type=channel"
                             + "&maxResults=50"
+                            + "&regionCode=IN"
                             + "&q=" + keyword
                             + "&pageToken=" + nextPageToken
                             + "&key=" + apiKey;
